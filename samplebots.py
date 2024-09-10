@@ -17,8 +17,8 @@ class SampleBot2(Bot):
         if move == 0:
             return RollDice()
         elif move == 1:
-            return PlacePlusMinusOne(random.randint(1,16), random.randint(0,1)==1)
+            return PlacePlusMinusOne(random.randint(0,15), random.randint(0,1)==1)
         elif move == 2:
-            return PlaceLegBet(random.randint(1, 5))
+            return PlaceLegBet(random.randint(0, 4))
         elif move == 3:
-            return PlaceFinalBet(random.randint(1, 5), random.randint(0,1)==1)
+            return PlaceFinalBet(random.randint(0, 4), random.randint(0,1)==1)

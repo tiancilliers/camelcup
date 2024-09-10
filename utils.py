@@ -5,21 +5,21 @@ class Move:
 
 @dataclass
 class RollDice(Move):
-    diceResult: int = 0 # must be 0 when you make a move, stores result when returning move
-    diceCamel: int = 0  # must be 0 when you make a move, stores camel that moved when returning move
+    diceResult: int = 0 # do not initialize, stores result when returning move
+    diceCamel: int = 0  # do not initialize, stores camel that moved when returning move
 
 @dataclass
 class PlacePlusMinusOne(Move):
-    tileNumber: int     # tile number from 1-16
+    tileNumber: int     # tile number from 0-15
     isPlusOne: bool     # true if +1, false if -1
 
 @dataclass
 class PlaceLegBet(Move):
-    camelNumber: int    # camel number from 1-5
+    camelNumber: int    # camel number from 0-4
 
 @dataclass
 class PlaceFinalBet(Move):
-    camelNumber: int    # camel number from 1-5, 0 when representing someone else's move (unknown)
+    camelNumber: int    # camel number from 0-4, None when representing someone else's move (unknown)
     isBetToWin: bool    # true if betting to win, false if betting to lose
 
 class BoardItem:
@@ -36,7 +36,7 @@ class PlusMinusOne(BoardItem):
 
 @dataclass
 class LegBet:
-    camelNumber: int    # camel number from 1-5
+    camelNumber: int    # camel number from 0-4
     winCoins: int       # coins won if this camel wins
 
 @dataclass
@@ -55,7 +55,7 @@ class BoardState():
     availableLegBets: list[LegBet]  # list of leg bets available to be placed
     board: list[BoardItem]          # list of board items, None if empty
     botStates: list[HiddenBotState] # list of bot states
-    diceRollsDone: list[int]        # list of camel dice rolls done, 0 if not done
+    diceRollsDone: list[int]        # list of camel dice rolls done, None if not done
     nFinalWinnerBets: int           # number of final winner bets placed
     nFinalLoserBets: int            # number of final loser bets placed
 

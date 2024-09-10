@@ -19,17 +19,17 @@ class Game:
         self.bots = [random.choice(availableBots)() for i in range(numberBots)]
 
         # initialize board state
-        self.availableLegBets = [LegBet(i+1, legBetScores[0]) for i in range(5)]
+        self.availableLegBets = [LegBet(i, legBetScores[0]) for i in range(5)]
         self.board = [None for i in range(16)]
         self.botStates = [FullBotState(startingBalance, [], 0, 5, [True for j in range(5)]) for i in range(numberBots)]
-        self.diceRollsDone = [0 for i in range(5)]
+        self.diceRollsDone = [None for i in range(5)]
         self.finalWinnerBets = []
         self.finalLoserBets = []
         self.gameRunning = True
 
         # roll for camel starting positions
         for camelIndex in range(5):
-            camelPos = random.randint(1, 3)-1
+            camelPos = random.randint(1,3)-1
             if self.board[camelPos] == None:
                 self.board[camelPos] = CamelPile([])
             self.board[camelPos].camels.append(camelIndex)
@@ -45,8 +45,10 @@ class Game:
         self.printBoard()
     
     def run(self):
-        while self.gameRunning:
+        i = 0
+        while self.gameRunning and i < 1000:
             self.step()
+            i += 1
 
     def step(self):
         move = self.bots[self.botTurn].calculateMove(self.botTurn, self.makeBoardState(self.botTurn))
@@ -67,40 +69,34 @@ class Game:
             self.log("Invalid move: not a Move object")
             return False
         if type(move) is RollDice:
-            if move.diceResult != 0:
-                self.log("Invalid move: dice result not 0")
-                return False
-            if move.diceCamel != 0:
-                self.log("Invalid move: camel result not 0")
-                return False
             return True
         if type(move) is PlacePlusMinusOne:
-            if move.tileNumber < 1 or move.tileNumber > 16:
+            if move.tileNumber < 0 or move.tileNumber > 15:
                 self.log("Invalid move: tile number out of range")
                 return False
-            if self.board[move.tileNumber-1] != None:
+            if self.board[move.tileNumber] != None:
                 self.log("Invalid move: tile already occupied")
                 return False
             if any(type(self.board[i]) == PlusMinusOne and self.board[i].botIndex == botIndex for i in range(16)):
                 self.log("Invalid move: already placed PlusMinusOne")
                 return False
-            if (move.tileNumber > 1 and type(self.board[move.tileNumber-2]) == PlusMinusOne) or (move.tileNumber < 16 and type(self.board[move.tileNumber]) == PlusMinusOne):
+            if (move.tileNumber > 0 and type(self.board[move.tileNumber-1]) == PlusMinusOne) or (move.tileNumber < 15 and type(self.board[move.tileNumber+1]) == PlusMinusOne):
                 self.log("Invalid move: PlusMinusOne cannot be placed next to another PlusMinusOne")
                 return False
             return True
         if type(move) is PlaceLegBet:
-            if move.camelNumber < 1 or move.camelNumber > 5:
+            if move.camelNumber < 0 or move.camelNumber > 4:
                 self.log("Invalid move: camel number out of range")
                 return False
-            if self.availableLegBets[move.camelNumber - 1] == None:
+            if self.availableLegBets[move.camelNumber] == None:
                 self.log("Invalid move: all bets for this camel already placed")
                 return False
             return True
         if type(move) is PlaceFinalBet:
-            if move.camelNumber < 1 or move.camelNumber > 5:
+            if move.camelNumber < 0 or move.camelNumber > 4:
                 self.log("Invalid move: camel number out of range")
                 return False
-            if not self.botStates[botIndex].finalBetsLeft[move.camelNumber-1]:
+            if not self.botStates[botIndex].finalBetsLeft[move.camelNumber]:
                 self.log("Invalid move: already placed final bet for this camel")
                 return False
             return True
@@ -108,30 +104,30 @@ class Game:
     def processMove(self, move: Move, botIndex: int) -> None:
         if type(move) is RollDice:
             move.diceResult = random.randint(1, 3)
-            move.diceCamel = random.choice([i for i in range(5) if self.diceRollsDone[i] == 0])
+            move.diceCamel = random.choice([i for i in range(5) if self.diceRollsDone[i] is None])
             self.diceRollsDone[move.diceCamel] = move.diceResult
             self.botStates[botIndex].nDiceRolls += 1
-            self.log(f"Bot {botIndex} rolled dice: {move.diceResult} for camel {move.diceCamel+1}")
+            self.log(f"Bot {botIndex} rolled dice: {move.diceResult} for camel {move.diceCamel}")
             self.moveCamels(move.diceCamel, move.diceResult)
             self.printBoard()
-            if self.gameRunning and not any(rollDone == 0 for rollDone in self.diceRollsDone):
+            if self.gameRunning and not any(rollDone is None for rollDone in self.diceRollsDone):
                 self.processLeg()
             return
         if type(move) is PlacePlusMinusOne:
-            self.board[move.tileNumber-1] = PlusMinusOne(move.isPlusOne, botIndex)
+            self.board[move.tileNumber] = PlusMinusOne(move.isPlusOne, botIndex)
             self.log(f"Bot {botIndex} placed {'+1' if move.isPlusOne else '-1'} on tile {move.tileNumber}")
             self.printBoard()
             return
         if type(move) is PlaceLegBet:
-            bet = copy.deepcopy(self.availableLegBets[move.camelNumber - 1])
+            bet = copy.deepcopy(self.availableLegBets[move.camelNumber])
             self.botStates[botIndex].legBets.append(bet)
             nextBets = [val for idx,val in enumerate(legBetScores) if idx>0 and legBetScores[idx-1] == bet.winCoins]
-            self.availableLegBets[move.camelNumber - 1] = None if len(nextBets) == 0 else LegBet(move.camelNumber, nextBets[0])
+            self.availableLegBets[move.camelNumber] = None if len(nextBets) == 0 else LegBet(move.camelNumber, nextBets[0])
             self.log(f"Bot {botIndex} has leg bets: " + ", ".join([f"{legBet.camelNumber} ({legBet.winCoins})" for legBet in self.botStates[botIndex].legBets]))
             return
         if type(move) is PlaceFinalBet:
             self.botStates[botIndex].nFinalBetsLeft -= 1
-            self.botStates[botIndex].finalBetsLeft[move.camelNumber - 1] = False
+            self.botStates[botIndex].finalBetsLeft[move.camelNumber] = False
             if move.isBetToWin:
                 self.finalWinnerBets.append(FinalBet(move.camelNumber, botIndex))
             else:
@@ -141,9 +137,9 @@ class Game:
     def processWin(self, camelsWinning: list[int]) -> None:
         camelPositions = self.processLeg(pastBots=camelsWinning)
         correctIdx = 0
-        self.log(f"Winning camel: {camelsWinning[0]+1}, winning bets: {', '.join([str(bet.botIndex)+':'+str(bet.camelNumber) for bet in self.finalWinnerBets])}")
+        self.log(f"Winning camel: {camelsWinning[0]}, winning bets: {', '.join([str(bet.botIndex)+':'+str(bet.camelNumber) for bet in self.finalWinnerBets])}")
         for bet in self.finalWinnerBets:
-            if bet.camelNumber-1 == camelsWinning[0]:
+            if bet.camelNumber == camelsWinning[0]:
                 self.log(f"Bot {bet.botIndex} wins {finalBetScores[correctIdx]} coins")
                 self.botStates[bet.botIndex].balance += finalBetScores[-1] if correctIdx >= len(finalBetScores) else finalBetScores[correctIdx]
                 correctIdx += 1
@@ -151,9 +147,9 @@ class Game:
                 self.log(f"Bot {bet.botIndex} loses 1 coin")
                 self.botStates[bet.botIndex].balance -= 1
         correctIdx = 0
-        self.log(f"Losing camel: {camelPositions[-1]+1}, losing bets: {', '.join([str(bet.botIndex)+':'+str(bet.camelNumber) for bet in self.finalLoserBets])}")
+        self.log(f"Losing camel: {camelPositions[-1]}, losing bets: {', '.join([str(bet.botIndex)+':'+str(bet.camelNumber) for bet in self.finalLoserBets])}")
         for bet in self.finalLoserBets:
-            if bet.camelNumber-1 == camelPositions[-1]:
+            if bet.camelNumber == camelPositions[-1]:
                 self.log(f"Bot {bet.botIndex} wins {finalBetScores[correctIdx]} coins")
                 self.botStates[bet.botIndex].balance += finalBetScores[-1] if correctIdx >= len(finalBetScores) else finalBetScores[correctIdx]
                 correctIdx += 1
@@ -165,18 +161,18 @@ class Game:
 
     def processLeg(self, pastBots=[]) -> None:
         camelPositions = pastBots + [idx for i in range(16-1, -1, -1) if type(self.board[i]) == CamelPile for idx in self.board[i].camels if idx not in pastBots]
-        self.availableLegBets = [LegBet(i+1, legBetScores[0]) for i in range(5)]
-        self.log(f"Leg finished, camel positions: {[c+1 for c in camelPositions]}")
+        self.availableLegBets = [LegBet(i, legBetScores[0]) for i in range(5)]
+        self.log(f"Leg finished, camel positions: {[c for c in camelPositions]}")
         for idx,bot in enumerate(self.botStates):
             self.log(f"Bot {idx} has {bot.balance} coins, ", end="")
             bot.balance += bot.nDiceRolls
             self.log(f"+ {bot.nDiceRolls} from dice rolls, ", end="")
             bot.nDiceRolls = 0
             for legBet in bot.legBets:
-                if legBet.camelNumber-1 == camelPositions[0]:
+                if legBet.camelNumber == camelPositions[0]:
                     bot.balance += legBet.winCoins
                     self.log(f"+ {legBet.winCoins} from leg bet on {legBet.camelNumber}, ", end="")
-                elif legBet.camelNumber-1 == camelPositions[1]:
+                elif legBet.camelNumber == camelPositions[1]:
                     bot.balance += 1
                     self.log(f"+ 1 from leg bet on {legBet.camelNumber}, ", end="")
                 else:
@@ -184,7 +180,7 @@ class Game:
                     self.log(f"- 1 from leg bet on {legBet.camelNumber}, ", end="")
             self.log(f"total: {bot.balance}")
             bot.legBets = []
-        self.diceRollsDone = [0 for i in range(5)]
+        self.diceRollsDone = [None for i in range(5)]
         for i in range(16):
             if type(self.board[i]) == PlusMinusOne:
                 self.board[i] = None
@@ -193,14 +189,15 @@ class Game:
     def printBoard(self):
         if not self.gameRunning:
             return
-        for i in range(5):
-            line = " ".join([str(self.board[j].camels[-5+i]+1) if type(self.board[j]) == CamelPile and len(self.board[j].camels) > 4-i else ("-+"[int(self.board[j].isPlusOne)] if type(self.board[j]) == PlusMinusOne and i==4 else " ") for j in range(16)])
+        height = max([len(self.board[i].camels) if type(self.board[i]) == CamelPile else 0 for i in range(16)])
+        for i in range(height):
+            line = " ".join([str(self.board[j].camels[-height+i]) if type(self.board[j]) == CamelPile and len(self.board[j].camels) > height-1-i else ("-+"[int(self.board[j].isPlusOne)] if type(self.board[j]) == PlusMinusOne and i==height-1 else " ") for j in range(16)])
             self.log(line)
 
     def sanitizeMove(self, move: Move) -> Move:
         move2 = copy.deepcopy(move)
         if type(move) is PlaceFinalBet:
-            move2.camelNumber = 0
+            move2.camelNumber = None
         return move2
 
     def moveCamels(self, camelIndex: int, nTiles: int) -> None:
@@ -258,5 +255,5 @@ def scoreBots():
     print(scores)
 
 if __name__ == "__main__":
-    scoreBots()
-    # runOneGame()
+    # scoreBots()
+    runOneGame()
